@@ -6,6 +6,7 @@ PYTHONPATH := ${PWD}/demo/:${PWD}
 DJANGO_14='django>=1.4,<1.5'
 DJANGO_15='django>=1.5,<1.6'
 DJANGO_16='django>=1.6,<1.7'
+DJANGO_17='django>=1.7,<1.8'
 DJANGO_17='https://www.djangoproject.com/download/1.7c2/tarball/'
 DJANGO_DEV=git+git://github.com/django/django.git
 
@@ -14,9 +15,9 @@ mkbuilddir:
 
 
 install-deps:
-	pip install -q \
-	        -r adminactions/requirements/install.pip \
-	        -r adminactions/requirements/testing.pip \
+	pip install pip==6.0.8
+	pip install -e .
+	pip install -r adminactions/requirements/testing.pip \
 	        python-coveralls
 
 
@@ -67,6 +68,8 @@ clean:
 	find . -name __pycache__ -o -name "*.py?" -o -name "*.orig" -prune | xargs rm -rf
 	find adminactions/locale -name django.mo | xargs rm -f
 
+fullclean: clean
+	rm -fr .tox .cache
 
 clonedigger: mkbuilddir
 	-clonedigger concurrency -l python -o ${BUILDDIR}/clonedigger.html --fast
