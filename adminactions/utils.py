@@ -1,5 +1,8 @@
+# -*- encoding: utf-8 -*-
+from __future__ import unicode_literals
+import six
+from django.db.models.base import ModelBase, Model
 from django.db import models
-from django.db.models import Model
 from django.db.models.fields.related import ForeignKey
 from django.db.models.query import QuerySet
 from django.db import connections, router
@@ -75,11 +78,11 @@ def get_field_value(obj, field, usedisplay=True, raw_callable=False):
 
     >>> from django.contrib.auth.models import Permission
     >>> p = Permission(name='perm')
-    >>> print get_field_value(p, 'name')
+    >>> print(get_field_value(p, 'name'))
     perm
 
     """
-    if isinstance(field, basestring):
+    if isinstance(field, six.string_types):
         fieldname = field
     elif isinstance(field, models.Field):
         fieldname = field.name
@@ -92,14 +95,13 @@ def get_field_value(obj, field, usedisplay=True, raw_callable=False):
         value = getattr_or_item(obj, fieldname)
 
     if not raw_callable and callable(value):
-        return value()
-
-    if isinstance(value, models.Model):
-        return smart_text(value)
-    # if isinstance(obj, Model):
-    #     field = get_field_by_path(obj, fieldname)
-    #     if isinstance(field, ForeignKey):
-    #         return unicode(value)
+        value = value()
+    elif isinstance(value, models.Model):
+        return value
+    if isinstance(obj, Model):
+        field = get_field_by_path(obj, fieldname)
+    if isinstance(field, ForeignKey):
+        return smart_str(value)
 
     return value
 
@@ -117,12 +119,12 @@ def get_field_by_path(model, field_path):
 
     >>> p = Permission(name='perm')
     >>> f = get_field_by_path(Permission, 'content_type')
-    >>> print f
+    >>> print(f)
     auth.Permission.content_type
 
     >>> p = Permission(name='perm')
     >>> f = get_field_by_path(p, 'content_type.app_label')
-    >>> print f
+    >>> print(f)
     contenttypes.ContentType.app_label
 
     """
@@ -160,22 +162,23 @@ def get_verbose_name(model_or_queryset, field):
     >>> from django.contrib.auth.models import User, Permission
     >>> user = User()
     >>> p = Permission()
-    >>> print unicode(get_verbose_name(user, 'username'))
+    >>> print(get_verbose_name(user, 'username'))
     username
-    >>> print unicode(get_verbose_name(User, 'username'))
+    >>> print(get_verbose_name(User, 'username'))
     username
-    >>> print unicode(get_verbose_name(User.objects.all(), 'username'))
+    >>> print(get_verbose_name(User.objects.all(), 'username'))
     username
-    >>> print unicode(get_verbose_name(User.objects, 'username'))
+    >>> print(get_verbose_name(User.objects, 'username'))
     username
-    >>> print unicode(get_verbose_name(User.objects, user._meta.get_field_by_name('username')[0]))
+    >>> print(get_verbose_name(User.objects, user._meta.get_field_by_name('username')[0]))
     username
-    >>> print unicode(get_verbose_name(p, 'content_type.model'))
+    >>> print(get_verbose_name(p, 'content_type.model'))
     python model class name
-    >>> get_verbose_name(object, 'aaa')
-    Traceback (most recent call last):
-    ...
-    ValueError: `get_verbose_name` expects Manager, Queryset or Model as first parameter (got <type 'type'>)
+
+    # >>> get_verbose_name(object, 'aaa')
+    # Traceback (most recent call last):
+    # ...
+    # ValueError: `get_verbose_name` expects Manager, Queryset or Model as first parameter (got <type 'type'>)
     """
 
     if isinstance(model_or_queryset, models.Manager):
@@ -184,13 +187,13 @@ def get_verbose_name(model_or_queryset, field):
         model = model_or_queryset.model
     elif isinstance(model_or_queryset, models.Model):
         model = model_or_queryset
-    elif type(model_or_queryset) is models.base.ModelBase:
+    elif type(model_or_queryset) is ModelBase:
         model = model_or_queryset
     else:
         raise ValueError('`get_verbose_name` expects Manager, Queryset or Model as first parameter (got %s)' % type(
             model_or_queryset))
 
-    if isinstance(field, basestring):
+    if isinstance(field, six.string_types):
         field = get_field_by_path(model, field)
     elif isinstance(field, models.Field):
         field = field
@@ -222,7 +225,7 @@ def flatten(iterable):
 
     result = list()
     for el in iterable:
-        if hasattr(el, "__iter__") and not isinstance(el, basestring):
+        if hasattr(el, "__iter__") and not isinstance(el, six.string_types):
             result.extend(flatten(el))
         else:
             result.append(el)

@@ -1,8 +1,15 @@
 # -*- encoding: utf-8 -*-
 from __future__ import absolute_import
-import StringIO
+import six
+import io
 import xlrd
-import csv
+if six.PY2:
+    import unicodecsv as csv
+    from six import StringIO
+else:
+    import csv
+    from io import BytesIO as StringIO
+
 import mock
 from django_webtest import WebTest
 from django_dynamic_fixture import G
@@ -35,7 +42,7 @@ class ExportAsFixtureTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebTe
             form['action'] = self.action_name
             form.set('_selected_action', True, 0)
             res = form.submit().follow()
-            assert 'Sorry you do not have rights to execute this action' in res.body
+            assert six.b('Sorry you do not have rights to execute this action') in res.body
 
     def test_success(self):
         with user_grant_permission(self.user, ['auth.change_user', 'auth.adminactions_export_user']):
@@ -91,7 +98,7 @@ class ExportDeleteTreeTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebT
             form['action'] = self.action_name
             form.set('_selected_action', True, 0)
             res = form.submit().follow()
-            assert 'Sorry you do not have rights to execute this action' in res.body
+            assert six.b('Sorry you do not have rights to execute this action') in res.body
 
     def test_success(self):
         with user_grant_permission(self.user, ['auth.change_user', 'auth.adminactions_export_user']):
@@ -123,10 +130,11 @@ class ExportDeleteTreeTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebT
             if the ModelAdmin has `get_export_as_csv_filename()` use that method to get the
             attachment filename
         """
+        FILENAME = six.u('néw.tęst')
         with user_grant_permission(self.user, ['auth.change_user', 'auth.adminactions_export_user']):
             res = self.app.get('/', user='user')
             with admin_register(User) as md:
-                with mock.patch.object(md, 'get_export_delete_tree_filename', lambda r, q: 'new.test', create=True):
+                with mock.patch.object(md, 'get_export_delete_tree_filename', lambda r, q: FILENAME, create=True):
                     res = res.click('Users')
                     form = res.forms['changelist-form']
                     form['action'] = self.action_name
@@ -134,7 +142,7 @@ class ExportDeleteTreeTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebT
                     form['select_across'] = 1
                     res = form.submit()
                     res = res.form.submit('apply')
-                    self.assertEqual(res.content_disposition, u'attachment;filename="new.test"')
+                    self.assertEqual(res.content_disposition, 'attachment;filename="%s"' % FILENAME.encode('ASCII', 'replace'))
 
 
 class ExportAsCsvTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebTest):
@@ -150,7 +158,7 @@ class ExportAsCsvTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebTest):
             form['action'] = 'export_as_csv'
             form.set('_selected_action', True, 0)
             res = form.submit().follow()
-            assert 'Sorry you do not have rights to execute this action' in res.body
+            assert six.b('Sorry you do not have rights to execute this action') in res.body
 
     def test_success(self):
         with user_grant_permission(self.user, ['auth.change_user', 'auth.adminactions_export_user']):
@@ -162,10 +170,11 @@ class ExportAsCsvTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebTest):
             self._select_rows(form)
             res = form.submit()
             res = res.form.submit('apply')
-            io = StringIO.StringIO(res.body)
-            csv_reader = csv.reader(io)
+            res.showbrowser()
+            buf = io.BytesIO(res.body)
+            csv_reader = csv.reader(buf.read().decode('utf-8'))
             rows = 0
-            for c in csv_reader:
+            for c in list(csv_reader):
                 rows += 1
             self.assertEqual(rows, 2)
 
@@ -174,10 +183,12 @@ class ExportAsCsvTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebTest):
             if the ModelAdmin has `get_export_as_csv_filename()` use that method to get the
             attachment filename
         """
+        FILENAME = six.u('néw.tęst')
+
         with user_grant_permission(self.user, ['auth.change_user', 'auth.adminactions_export_user']):
             res = self.app.get('/', user='user')
             with admin_register(User) as md:
-                with mock.patch.object(md, 'get_export_as_csv_filename', lambda r, q: 'new.test', create=True):
+                with mock.patch.object(md, 'get_export_as_csv_filename', lambda r, q: FILENAME, create=True):
                     res = res.click('Users')
                     form = res.forms['changelist-form']
                     form['action'] = 'export_as_csv'
@@ -185,7 +196,7 @@ class ExportAsCsvTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebTest):
                     form['select_across'] = 1
                     res = form.submit()
                     res = res.form.submit('apply')
-                    self.assertEqual(res.content_disposition, u'attachment;filename="new.test"')
+                    self.assertEqual(res.content_disposition, 'attachment;filename="%s"' % FILENAME.encode('ASCII', 'replace'))
 
     def _run_action(self, steps=2):
         with user_grant_permission(self.user, ['auth.change_user', 'auth.adminactions_export_user']):
@@ -228,7 +239,7 @@ class ExportAsXlsTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebTest):
             form['action'] = 'export_as_xls'
             form.set('_selected_action', True, 0)
             res = form.submit().follow()
-            assert 'Sorry you do not have rights to execute this action' in res.body
+            assert six.b('Sorry you do not have rights to execute this action') in res.body
 
     def test_success(self):
         with user_grant_permission(self.user, ['auth.change_user', 'auth.adminactions_export_user']):
@@ -245,7 +256,7 @@ class ExportAsXlsTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebTest):
             res.form['columns'] = ['id', 'username', 'first_name'
                                                      '']
             res = res.form.submit('apply')
-            io = StringIO.StringIO(res.body)
+            io = StringIO(res.body)
 
             io.seek(0)
             w = xlrd.open_workbook(file_contents=io.read())
@@ -260,7 +271,8 @@ class ExportAsXlsTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebTest):
             # self.assertEquals(sheet.cell_value(3, 2), u'user_00')
 
     def test_use_display_ok(self):
-        with user_grant_permission(self.user, ['tests.change_demomodel', 'tests.adminactions_export_demomodel']):
+        with user_grant_permission(self.user, ['tests.change_demomodel',
+                                               'tests.adminactions_export_demomodel']):
             res = self.app.get('/', user='user')
             res = res.click('Demo models')
             form = res.forms['changelist-form']
@@ -269,13 +281,15 @@ class ExportAsXlsTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebTest):
             res = form.submit()
             res.form['header'] = 1
             res.form['use_display'] = 1
-            res.form['columns'] = ['char', 'text', 'bigint', 'choices'
-                                                             '']
+            res.form['columns'] = ['char', 'text', 'bigint', 'choices']
             res = res.form.submit('apply')
-            io = StringIO.StringIO(res.body)
+            with open('AAAA.xls', 'wb') as f:
+                f.write(res.body)
 
-            io.seek(0)
-            w = xlrd.open_workbook(file_contents=io.read())
+            out = StringIO(res.body)
+
+            out.seek(0)
+            w = xlrd.open_workbook(file_contents=out.read())
             sheet = w.sheet_by_index(0)
             self.assertEquals(sheet.cell_value(0, 1), u'Chäř')
             self.assertEquals(sheet.cell_value(0, 2), u'bigint')
@@ -298,10 +312,10 @@ class ExportAsXlsTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebTest):
             res.form['columns'] = ['char', 'text', 'bigint', 'choices'
                                                              '']
             res = res.form.submit('apply')
-            io = StringIO.StringIO(res.body)
+            out = StringIO(res.body)
 
-            io.seek(0)
-            w = xlrd.open_workbook(file_contents=io.read())
+            out.seek(0)
+            w = xlrd.open_workbook(file_contents=out.read())
             sheet = w.sheet_by_index(0)
             self.assertEquals(sheet.cell_value(0, 1), u'Chäř')
             self.assertEquals(sheet.cell_value(0, 2), u'bigint')
@@ -323,10 +337,10 @@ class ExportAsXlsTest(ExportMixin, SelectRowsMixin, CheckSignalsMixin, WebTest):
             res.form['header'] = 1
             res.form['columns'] = ['char',]
             res = res.form.submit('apply')
-            io = StringIO.StringIO(res.body)
+            out = StringIO(res.body)
 
-            io.seek(0)
-            w = xlrd.open_workbook(file_contents=io.read())
+            out.seek(0)
+            w = xlrd.open_workbook(file_contents=out.read())
             sheet = w.sheet_by_index(0)
             self.assertEquals(sheet.cell_value(0, 1), u'Chäř')
             self.assertEquals(sheet.cell_value(1, 1), u'Pizzä ïs Gööd')

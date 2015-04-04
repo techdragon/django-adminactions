@@ -13,6 +13,7 @@ from django.template.context import RequestContext
 from django.utils.safestring import mark_safe
 from django.contrib.admin import helpers
 from django.core import serializers as ser
+import six
 from adminactions.exceptions import ActionInterrupted
 from adminactions.forms import CSVOptions, XLSOptions
 from adminactions.models import get_permission_codename
@@ -195,7 +196,8 @@ def _dump_qs(form, queryset, data, filename):
     response = HttpResponse(content_type='application/json')
     if not form.cleaned_data.get('on_screen', False):
         filename = filename or "%s.%s" % (queryset.model._meta.verbose_name_plural.lower().replace(" ", "_"), fmt)
-        response['Content-Disposition'] = 'attachment;filename="%s"' % filename.encode('us-ascii', 'replace')
+        response['Content-Disposition'] = six.u('attachment;filename="%s"') % filename.encode('ASCII', 'replace')
+
     response.content = ret
     return response
 

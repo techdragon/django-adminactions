@@ -1,7 +1,7 @@
 import re
+import six
 import json
 import datetime
-import string
 from collections import defaultdict
 
 from django import forms
@@ -15,7 +15,7 @@ from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.http import HttpResponseRedirect
 from django.shortcuts import render_to_response
 from django.template.context import RequestContext
-from django.utils.encoding import force_unicode
+from django.utils.encoding import smart_str
 from django.utils.functional import curry
 from django.utils.datastructures import SortedDict
 from django.utils.safestring import mark_safe
@@ -42,6 +42,11 @@ change_protocol = lambda arg, value: re.sub('^[a-z]*://', "%s://" % arg, value)
 
 disable_if_not_nullable = lambda field: field.null
 disable_if_unique = lambda field: not field.unique
+
+if six.PY2:
+    import string
+else:
+    string = str
 
 
 class OperationManager(object):
@@ -92,7 +97,7 @@ OPERATIONS = OperationManager({
     df.CharField: [('upper', (string.upper, False, True, "convert to uppercase")),
                    ('lower', (string.lower, False, True, "convert to lowercase")),
                    ('capitalize', (string.capitalize, False, True, "capitalize first character")),
-                   ('capwords', (string.capwords, False, True, "capitalize each word")),
+                   # ('capwords', (string.capwords, False, True, "capitalize each word")),
                    ('swapcase', (string.swapcase, False, True, "")),
                    ('trim', (string.strip, False, True, "leading and trailing whitespace"))],
     df.IntegerField: [('add percent', (add_percent, True, True, "add <arg> percent to existing value")),
@@ -146,7 +151,7 @@ class MassUpdateForm(GenericActionForm):
                     # Clean the model instance's fields.
             try:
                 self.instance.clean_fields(exclude=exclude)
-            except ValidationError, e:
+            except ValidationError as e:
                 self._update_errors(e.message_dict)
 
     def _clean_fields(self):
@@ -175,7 +180,7 @@ class MassUpdateForm(GenericActionForm):
                     if hasattr(self, 'clean_%s' % name):
                         value = getattr(self, 'clean_%s' % name)()
                         self.cleaned_data[name] = value
-            except ValidationError, e:
+            except ValidationError as e:
                 self._errors[name] = self.error_class(e.messages)
                 if name in self.cleaned_data:
                     del self.cleaned_data[name]
@@ -327,7 +332,7 @@ def mass_update(modeladmin, request, queryset):
     tpl = 'adminactions/mass_update.html'
     ctx = {'adminform': adminForm,
            'form': form,
-           'title': u"Mass update %s" % force_unicode(modeladmin.opts.verbose_name_plural),
+           'title': u"Mass update %s" % smart_str(modeladmin.opts.verbose_name_plural),
            'grouped': grouped,
            'fieldvalues': json.dumps(grouped, default=dthandler),
            'change': True,

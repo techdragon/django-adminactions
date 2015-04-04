@@ -3,6 +3,7 @@ from django.core.urlresolvers import reverse
 from django_dynamic_fixture import G
 from django_webtest import WebTestMixin
 from django.test import TransactionTestCase
+import six
 from tests.models import DemoModel
 from .utils import CheckSignalsMixin, user_grant_permission, SelectRowsMixin
 
@@ -53,7 +54,7 @@ class MassUpdateTest(SelectRowsMixin, CheckSignalsMixin, WebTestMixin, Transacti
             form['action'] = 'mass_update'
             form.set('_selected_action', True, 0)
             res = form.submit().follow()
-            assert 'Sorry you do not have rights to execute this action' in res.body
+            assert six.b('Sorry you do not have rights to execute this action') in res.body
 
     def test_validate_on(self):
         self._run_action(**{'_validate': 1})
